@@ -1,0 +1,24 @@
+# Copy to ~/.dbt/profiles.yml and fill in your GCP project details
+air_quality:
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      method: service-account
+      project: your-gcp-project-id
+      dataset: air_quality_dev
+      keyfile: /absolute/path/to/gcp-key.json
+      location: europe-central2
+      threads: 4
+      timeout_seconds: 300
+      priority: interactive
+    prod:
+      type: bigquery
+      method: service-account
+      project: your-gcp-project-id
+      dataset: air_quality_prod
+      keyfile: /absolute/path/to/gcp-key.json
+      location: europe-central2
+      threads: 8
+      timeout_seconds: 600
+      priority: interactive

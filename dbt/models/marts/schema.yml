@@ -1,0 +1,18 @@
+version: 2
+
+models:
+  - name: fct_measurements_hourly
+    description: "Hourly measurement fact, enriched with station info and WHO exceedance flag"
+    columns:
+      - name: sensor_id
+        tests: [not_null]
+      - name: measured_at
+        tests: [not_null]
+      - name: value
+        tests: [not_null]
+
+  - name: dim_station
+    description: "Station dimension"
+    columns:
+      - name: station_id
+        tests: [not_null, unique]

@@ -1,0 +1,41 @@
+version: 2
+
+sources:
+  - name: raw
+    description: "Raw landing zone - JSON unboxed by Prefect ingest flows"
+    database: "{{ env_var('GCP_PROJECT_ID') }}"
+    schema: air_quality_raw
+    tables:
+      - name: stations
+        description: "GIOS monitoring stations (slow-changing dim, daily snapshot)"
+        loaded_at_field: _ingested_at
+        freshness:
+          warn_after: { count: 26, period: hour }
+          error_after: { count: 48, period: hour }
+        columns:
+          - name: id
+            description: "GIOS station ID"
+            tests: [not_null, unique]
+          - name: stationName
+            tests: [not_null]
+          - name: gegrLat
+          - name: gegrLon
+
+      - name: sensors
+        description: "Sensors attached to stations (one station has many sensors, one per pollutant)"
+        loaded_at_field: _ingested_at
+        columns:
+          - name: id
+            tests: [not_null, unique]
+
+      - name: measurements
+        description: "Hourly measurements per sensor"
+        loaded_at_field: _ingested_at
+        freshness:
+          warn_after: { count: 2, period: hour }
+          error_after: { count: 6, period: hour }
+        columns:
+          - name: sensor_id
+            tests: [not_null]
+          - name: measured_at
+            tests: [not_null]

@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environment
+.env
+.env.local
+*.pem
+*.key
+service-account*.json
+gcp-key*.json
+
+# Data
+data/
+*.parquet
+*.duckdb
+*.db
+*.sqlite
+
+# dbt
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+dbt/.user.yml
+profiles.yml
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+*.tfvars
+!terraform.tfvars.example
+
+# Prefect
+.prefect/
+prefect.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store

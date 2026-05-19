@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  python:
+    name: Lint + Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install minimal deps
+        run: |
+          pip install httpx pandas pyarrow tenacity "prefect>=3.0" pytest ruff
+      - name: Ruff
+        run: ruff check .
+      - name: Pytest
+        run: pytest tests/ -v
+
+  dbt:
+    name: dbt parse
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dbt
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dbt-bigquery
+        run: pip install "dbt-core>=1.8" "dbt-bigquery>=1.8"
+      - name: Set up CI profile (no real warehouse, parse only)
+        run: |
+          mkdir -p $HOME/.dbt
+          cat > $HOME/.dbt/profiles.yml <<'EOF'
+          air_quality:
+            target: ci
+            outputs:
+              ci:
+                type: bigquery
+                method: service-account-json
+                project: ci-dummy
+                dataset: ci_dummy
+                location: EU
+                threads: 1
+                keyfile_json:
+                  type: service_account
+                  project_id: ci-dummy
+          EOF
+      - name: dbt deps
+        run: dbt deps
+      - name: dbt parse
+        run: dbt parse
+        env:
+          GCP_PROJECT_ID: ci-dummy
+
+  terraform:
+    name: Terraform validate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: terraform
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform init -backend=false
+      - run: terraform validate
+      - run: terraform fmt -check
