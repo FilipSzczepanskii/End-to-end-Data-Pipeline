@@ -86,8 +86,11 @@ def _normalize(records: list[dict], mapping: dict[str, str]) -> list[dict]:
 
 
 @task(retries=2, retry_delay_seconds=30)
-def fetch_stations() -> pd.DataFrame:
-    """Fetch all stations across paginated responses, skipping pages that fail with 5xx."""
+def fetch_stations(max_records: int | None = None) -> pd.DataFrame:
+    """Fetch stations across paginated responses, skipping pages that fail with 5xx.
+
+    When `max_records` is set, pagination short-circuits once we have enough rows.
+    """
     logger = get_run_logger()
     all_records: list[dict] = []
     skipped_pages: list[int] = []
@@ -96,6 +99,8 @@ def fetch_stations() -> pd.DataFrame:
 
     with httpx.Client(timeout=TIMEOUT) as client:
         while page < total_pages:
+            if max_records is not None and len(all_records) >= max_records:
+                break
             try:
                 payload = _get(client, "/station/findAll", params={"size": PAGE_SIZE, "page": page})
             except (_GiosServerError, RetryError) as e:
@@ -157,7 +162,7 @@ def ingest_gios(local: bool = True, max_stations: int | None = None) -> dict:
     logger = get_run_logger()
     base_dir = Path(os.getenv("LOCAL_DATA_DIR", "./data"))
 
-    stations = fetch_stations()
+    stations = fetch_stations(max_records=max_stations)
     if max_stations:
         stations = stations.head(max_stations)
         logger.info(f"Capped to {len(stations)} stations for dev run")

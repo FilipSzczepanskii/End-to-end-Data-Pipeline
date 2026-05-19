@@ -23,9 +23,12 @@ gcp-key*.json
 # Data
 data/
 *.parquet
-*.duckdb
 *.db
 *.sqlite
+
+# Local DuckDB caches; the dashboard's bundled snapshot is committed explicitly
+*.duckdb
+!dashboard/air_quality.duckdb
 
 # dbt
 dbt/target/
@@ -51,3 +54,6 @@ prefect.db
 .idea/
 *.swp
 .DS_Store
+
+# Logs
+*.log

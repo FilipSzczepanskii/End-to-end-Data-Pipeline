@@ -2,6 +2,8 @@
 
 A pipeline that pulls hourly air-quality readings from Polish monitoring stations, lands them as parquet, models them with dbt over DuckDB, and serves a Streamlit dashboard. I built it to get hands-on with a full Data Engineering stack: orchestration, transformations, IaC, CI.
 
+**Live demo:** the deployed dashboard is at the URL listed in the repo's "About" section on GitHub.
+
 The whole thing runs locally, no cloud account needed. The Terraform under `terraform/` plans the same warehouse on BigQuery, in case you want to move it to GCP.
 
 ## Data sources

@@ -23,10 +23,30 @@ import streamlit as st
 st.set_page_config(page_title="Air Quality PL", layout="wide")
 
 
+def _resolve_duckdb_path() -> Path:
+    """Pick the first DuckDB file that exists.
+
+    The dashboard ships a snapshot at `dashboard/air_quality.duckdb` so the
+    deployed app has data on first load. Local dev usually writes to
+    `./air_quality.duckdb` at the project root.
+    """
+    here = Path(__file__).parent
+    candidates = [
+        Path(os.getenv("DUCKDB_PATH")) if os.getenv("DUCKDB_PATH") else None,
+        here / "air_quality.duckdb",
+        Path.cwd() / "air_quality.duckdb",
+        here.parent / "air_quality.duckdb",
+    ]
+    for c in candidates:
+        if c and c.exists():
+            return c
+    return here / "air_quality.duckdb"
+
+
 @st.cache_data(ttl=600)
 def load_measurements() -> pd.DataFrame:
     """Read the last 7 days of measurements from the dbt mart, or fall back to parquet."""
-    duckdb_path = Path(os.getenv("DUCKDB_PATH", "./air_quality.duckdb"))
+    duckdb_path = _resolve_duckdb_path()
     if duckdb_path.exists():
         con = duckdb.connect(str(duckdb_path), read_only=True)
         try:
