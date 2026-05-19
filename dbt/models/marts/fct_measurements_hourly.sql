@@ -1,14 +1,12 @@
 {{ config(
     materialized='incremental',
-    unique_key=['sensor_id', 'measured_at'],
-    partition_by={'field': 'measured_date', 'data_type': 'date'},
-    cluster_by=['station_id', 'pollutant_code']
+    unique_key=['sensor_id', 'measured_at']
 ) }}
 
 with measurements as (
     select * from {{ ref('stg_gios__measurements') }}
     {% if is_incremental() %}
-        where measured_at > (select coalesce(max(measured_at), '1900-01-01') from {{ this }})
+        where measured_at > (select coalesce(max(measured_at), timestamp '1900-01-01') from {{ this }})
     {% endif %}
 ),
 
@@ -21,7 +19,7 @@ select
     m.station_id,
     s.station_name,
     s.city_name,
-    s.province_name,
+    s.province,
     s.latitude,
     s.longitude,
     m.pollutant_code,
@@ -33,7 +31,7 @@ select
         when 'PM10'  then m.value > {{ var('who_pm10_24h_limit') }}
         when 'NO2'   then m.value > {{ var('who_no2_24h_limit') }}
         else null
-    end                                            as exceeds_who_limit,
-    current_timestamp()                            as dbt_updated_at
+    end                            as exceeds_who_limit,
+    current_timestamp              as dbt_updated_at
 from measurements m
 left join stations s using (station_id)

@@ -25,12 +25,8 @@ models:
     marts:
       +materialized: table
       +schema: marts
-      +partition_by:
-        field: measured_date
-        data_type: date
-        granularity: day
 
 vars:
-  who_pm25_24h_limit: 15  # µg/m³ WHO 2021 guideline
+  who_pm25_24h_limit: 15 # WHO 2021 guideline, ug/m3, 24h
   who_pm10_24h_limit: 45
   who_no2_24h_limit: 25

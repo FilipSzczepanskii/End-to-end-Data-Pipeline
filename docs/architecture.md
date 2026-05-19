@@ -1,24 +1,28 @@
 # Architecture decisions
 
-Short notes on the bigger choices in this project. The aim is to write down enough to remember why something is the way it is six months from now.
+Short notes on the bigger choices in this project.
 
 ## Prefect over Airflow
 
 I wanted an orchestrator that does not need a separate scheduler and webserver to run locally. Prefect 3 fits that. Flows and tasks are plain Python functions, which makes them trivial to unit test. The free Prefect Cloud tier (10k task runs per month) is enough to host this in a production-like setup for free.
 
-Trade-off: Airflow still shows up in more job listings than Prefect. The concepts transfer, so I am not too worried about it.
+Trade-off: Airflow shows up in more job listings than Prefect. The concepts transfer, so I am not too worried about it.
 
 ## dbt over SQLMesh or DataForm
 
-dbt is what the market is asking for. A quick scan of Polish Data Engineer listings on 2026-05-19 had it mentioned in roughly 80% of posts. SQLMesh is interesting but I would have to explain it in every interview.
+dbt is what the market is asking for. A quick scan of Polish Data Engineer listings on 2026-05-19 had it mentioned in roughly 80% of posts.
 
-## BigQuery over Snowflake
+## DuckDB over BigQuery (for the default target)
 
-Two reasons. The free tier is generous enough that running this for a year costs $0. And the integration with GCP service accounts is one less moving part than connecting Snowflake to anything outside of itself.
+I wanted the whole project to run with `git clone && pip install && run`. That rules out anything that needs a cloud account, a card on file, or a multi-step auth flow. DuckDB ticks all the boxes: real columnar storage, full SQL, parquet reads at warehouse-comparable speeds for this data size, and dbt has a first-party adapter.
+
+The BigQuery plan still lives under `terraform/` because the migration path matters. The dbt project only needs the profile swapped to switch warehouses. Picking DuckDB also lands me in a stack that has been getting heavy use in real analytics teams (MotherDuck, dbt Labs, Fivetran), so it is not a step down for the portfolio.
 
 ## Medallion layout (raw / staging / marts)
 
-Standard layering, easy to explain. The raw layer is immutable append-only with 90 day retention so I can replay transformations if I change a dbt model. Staging holds views (cheap, no storage). Marts are tables partitioned by date and clustered by station, which is what the dashboard reads.
+Standard layering, easy to explain. Raw is immutable parquet on disk, partitioned by ingest date. Staging is DuckDB views (cheap, no storage). Marts are tables, with `fct_measurements_hourly` built incrementally on `measured_at`.
+
+The raw layer being parquet, not a warehouse table, is deliberate. It keeps the warehouse layer empty until dbt builds it, which means I can drop and rebuild DuckDB whenever I want without losing data.
 
 ## Graceful failure over strict ingest
 

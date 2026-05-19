@@ -1,8 +1,17 @@
-# Copy to ~/.dbt/profiles.yml and fill in your GCP project details
+# Copy to ~/.dbt/profiles.yml. The default `dev` target writes to a local
+# DuckDB file. `prod_bigquery` is here for reference if you want to switch
+# to the GCP variant (Terraform plan lives under terraform/).
+
 air_quality:
   target: dev
   outputs:
     dev:
+      type: duckdb
+      path: ../air_quality.duckdb
+      threads: 4
+      external_root: ..
+
+    prod_bigquery:
       type: bigquery
       method: service-account
       project: your-gcp-project-id
@@ -11,14 +20,4 @@ air_quality:
       location: europe-central2
       threads: 4
       timeout_seconds: 300
-      priority: interactive
-    prod:
-      type: bigquery
-      method: service-account
-      project: your-gcp-project-id
-      dataset: air_quality_prod
-      keyfile: /absolute/path/to/gcp-key.json
-      location: europe-central2
-      threads: 8
-      timeout_seconds: 600
       priority: interactive

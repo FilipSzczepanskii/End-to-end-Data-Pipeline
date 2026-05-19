@@ -1,16 +1,28 @@
+-- Latest snapshot per station. Source parquet is append-only across
+-- daily snapshots, so we keep the most recent row for each station_id.
 with src as (
     select * from {{ source('raw', 'stations') }}
+),
+
+deduped as (
+    select
+        *,
+        row_number() over (partition by station_id order by _ingested_at desc) as _rn
+    from src
 )
 
 select
-    cast(id as int64)                              as station_id,
-    stationName                                    as station_name,
-    cast(gegrLat as float64)                       as latitude,
-    cast(gegrLon as float64)                       as longitude,
-    `city.name`                                    as city_name,
-    `city.commune.communeName`                     as commune_name,
-    `city.commune.districtName`                    as district_name,
-    `city.commune.provinceName`                    as province_name,
-    addressStreet                                  as street_address,
-    _ingested_at                                   as ingested_at
-from src
+    cast(station_id as bigint)  as station_id,
+    station_code,
+    station_name,
+    cast(latitude as double)    as latitude,
+    cast(longitude as double)   as longitude,
+    city_id,
+    city_name,
+    commune,
+    district,
+    province,
+    street,
+    _ingested_at                as ingested_at
+from deduped
+where _rn = 1

@@ -1,3 +1,7 @@
+# GCP variant of the warehouse. The default project target is DuckDB
+# (see dbt/profiles.yml.example). This plan is here so the BigQuery path
+# is a profile swap away if you want to deploy to GCP.
+
 terraform {
   required_version = ">= 1.5"
   required_providers {

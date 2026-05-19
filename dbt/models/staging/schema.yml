@@ -2,7 +2,7 @@ version: 2
 
 models:
   - name: stg_gios__stations
-    description: "Cleaned & typed GIOS stations"
+    description: "Cleaned and typed GIOS stations, latest snapshot per station."
     columns:
       - name: station_id
         tests: [not_null, unique]
@@ -20,7 +20,7 @@ models:
               max_value: 24.5
 
   - name: stg_gios__measurements
-    description: "Cleaned hourly measurements"
+    description: "Hourly readings, deduped on (sensor_id, measured_at)."
     columns:
       - name: sensor_id
         tests: [not_null]
@@ -29,7 +29,7 @@ models:
       - name: pollutant_code
         tests:
           - accepted_values:
-              values: ['PM10', 'PM2.5', 'NO2', 'SO2', 'O3', 'CO', 'C6H6']
+              values: ['PM10', 'PM2.5', 'NO', 'NO2', 'NOX', 'SO2', 'O3', 'CO', 'C6H6']
       - name: value
         tests:
           - dbt_utils.accepted_range:

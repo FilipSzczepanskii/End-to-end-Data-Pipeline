@@ -209,13 +209,12 @@ def ingest_gios(local: bool = True, max_stations: int | None = None) -> dict:
         measurements_df["measured_at"] = pd.to_datetime(measurements_df["measured_at"])
         measurements_df["_ingested_at"] = datetime.now(UTC)
 
-    if local:
-        write_parquet(stations, "stations", base_dir)
-        write_parquet(sensors_df, "sensors", base_dir)
-        if not measurements_df.empty:
-            write_parquet(measurements_df, "measurements", base_dir)
-    else:
-        logger.warning("BigQuery sink not yet implemented (see roadmap M4 in README)")
+    write_parquet(stations, "stations", base_dir)
+    write_parquet(sensors_df, "sensors", base_dir)
+    if not measurements_df.empty:
+        write_parquet(measurements_df, "measurements", base_dir)
+    if not local:
+        logger.info("BigQuery sink not active. The dbt project reads the parquet directly via dbt-duckdb.")
 
     return {
         "stations": len(stations),
