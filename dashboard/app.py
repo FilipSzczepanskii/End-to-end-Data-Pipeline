@@ -174,12 +174,17 @@ def load_measurements() -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 def _concentration_color(norm: float) -> list[int]:
-    """Green -> yellow -> red gradient, fully opaque border-friendly."""
+    """Three-stop ramp: green -> amber -> red, tuned for a light basemap."""
+    GREEN = (30, 185, 30)
+    AMBER = (255, 150, 0)
+    RED   = (215, 15,  15)
     if norm < 0.5:
         t = norm * 2
-        return [int(t * 255), 190, 0, 220]
-    t = (norm - 0.5) * 2
-    return [255, int((1 - t) * 190), 0, 220]
+        c = [int(GREEN[i] + t * (AMBER[i] - GREEN[i])) for i in range(3)]
+    else:
+        t = (norm - 0.5) * 2
+        c = [int(AMBER[i] + t * (RED[i] - AMBER[i])) for i in range(3)]
+    return c + [235]
 
 
 # ---------------------------------------------------------------------------
@@ -272,7 +277,7 @@ def main() -> None:
 
     # -- Map ----------------------------------------------------------------
     with map_col:
-        st.subheader(f"Latest readings by station")
+        st.subheader("Latest readings by station")
         latest = (
             df_p.sort_values("measured_at")
             .groupby("station_id")
@@ -287,50 +292,63 @@ def main() -> None:
                 if v_max > v_min
                 else pd.Series(0.5, index=latest.index)
             )
-            latest["_radius"] = (14_000 + norm_series * 36_000).astype(int)
-            latest["_color"] = [_concentration_color(float(n)) for n in norm_series]
+
+            # 3-D column height in metres (20 km - 180 km above ground)
+            latest["_elevation"] = (20_000 + norm_series * 160_000).astype(int)
+            latest["_color"]     = [_concentration_color(float(n)) for n in norm_series]
 
             st.pydeck_chart(
                 pdk.Deck(
-                    map_style="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+                    map_style=(
+                        "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json"
+                    ),
                     initial_view_state=pdk.ViewState(
-                        latitude=52.1, longitude=19.5, zoom=5.1, pitch=0
+                        # Shifted a bit north so pitched columns stay inside the frame
+                        latitude=51.4,
+                        longitude=19.5,
+                        zoom=5.05,
+                        pitch=48,
+                        bearing=0,
                     ),
                     layers=[
                         pdk.Layer(
-                            "ScatterplotLayer",
+                            "ColumnLayer",
                             latest,
                             get_position=["longitude", "latitude"],
-                            get_radius="_radius",
-                            radius_min_pixels=8,
-                            radius_max_pixels=70,
+                            get_elevation="_elevation",
+                            elevation_scale=1,
+                            radius=22_000,
+                            disk_resolution=6,   # hexagonal columns
                             get_fill_color="_color",
-                            stroked=True,
-                            get_line_color=[255, 255, 255, 60],
+                            get_line_color=[255, 255, 255, 100],
                             line_width_min_pixels=1,
                             pickable=True,
+                            auto_highlight=True,
+                            coverage=0.88,
                         )
                     ],
                     tooltip={
                         "html": (
                             "<b>{station_name}</b><br/>"
+                            "{city_name}<br/>"
                             "{pollutant_code}: <b>{value}</b> μg/m³"
                         ),
                         "style": {
-                            "backgroundColor": "#161b27",
+                            "backgroundColor": "#1c2130",
                             "color": "#e6edf3",
                             "border": "1px solid #2a3148",
                             "borderRadius": "8px",
                             "fontSize": "13px",
-                            "padding": "8px 12px",
+                            "padding": "8px 14px",
+                            "boxShadow": "0 4px 12px rgba(0,0,0,0.4)",
                         },
                     },
                 ),
                 use_container_width=True,
             )
             st.caption(
-                "Circle size and color reflect concentration relative to stations shown. "
-                "Green = low, yellow = medium, red = high."
+                "Column height and color show concentration relative to stations visible. "
+                "Green = low, amber = medium, red = high."
             )
 
     # -- Trend chart --------------------------------------------------------
