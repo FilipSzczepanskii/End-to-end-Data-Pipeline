@@ -112,9 +112,34 @@ def main() -> None:
         df_p.sort_values("measured_at")
         .groupby("station_id")
         .tail(1)
-        .dropna(subset=["latitude", "longitude"])
+        .dropna(subset=["latitude", "longitude", "value"])
     )
     if not latest.empty:
+        latest = latest.copy()
+
+        # Normalize values to [0, 1] within the current pollutant so the map
+        # stays readable regardless of the pollutant's absolute scale.
+        v_min = latest["value"].min()
+        v_max = latest["value"].max()
+        norm = (
+            (latest["value"] - v_min) / (v_max - v_min)
+            if v_max > v_min
+            else pd.Series(0.5, index=latest.index)
+        )
+
+        # Radius in meters - relative size still varies, but radius_min_pixels
+        # below guarantees every circle is always visible on screen.
+        latest["_radius"] = (15_000 + norm * 35_000).astype(int)
+
+        # Color: green (low) -> yellow (medium) -> red (high)
+        def _color(n: float) -> list[int]:
+            if n < 0.5:
+                return [int(n * 2 * 255), 190, 0, 210]
+            return [255, int((1 - (n - 0.5) * 2) * 190), 0, 210]
+
+        latest["_color"] = [_color(float(n)) for n in norm]
+
+        st.caption("Color: green = low, yellow = medium, red = high (relative to stations shown)")
         st.pydeck_chart(
             pdk.Deck(
                 map_style="light",
@@ -126,8 +151,13 @@ def main() -> None:
                         "ScatterplotLayer",
                         latest,
                         get_position=["longitude", "latitude"],
-                        get_radius="value * 100",
-                        get_fill_color="[255, 80, 80, 160]",
+                        get_radius="_radius",
+                        radius_min_pixels=10,
+                        radius_max_pixels=80,
+                        get_fill_color="_color",
+                        stroked=True,
+                        get_line_color=[40, 40, 40, 120],
+                        line_width_min_pixels=1,
                         pickable=True,
                     )
                 ],
