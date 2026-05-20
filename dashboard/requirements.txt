@@ -1,6 +1,6 @@
 streamlit
 plotly
 pydeck
-duckdb
+duckdb==1.5.2
 pandas
 pyarrow

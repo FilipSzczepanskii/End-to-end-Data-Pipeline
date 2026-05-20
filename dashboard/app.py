@@ -45,20 +45,22 @@ def _resolve_duckdb_path() -> Path:
 
 @st.cache_data(ttl=600)
 def load_measurements() -> pd.DataFrame:
-    """Read the last 7 days of measurements from the dbt mart, or fall back to parquet."""
+    """Read measurements from the dbt mart, or fall back to parquet.
+
+    dbt-duckdb with no custom schema macro creates tables under main_marts
+    (not marts), so we try both names for forward compatibility.
+    """
     duckdb_path = _resolve_duckdb_path()
     if duckdb_path.exists():
         con = duckdb.connect(str(duckdb_path), read_only=True)
         try:
-            return con.execute(
-                """
-                select *
-                from marts.fct_measurements_hourly
-                where measured_date >= current_date - interval 7 day
-                """
-            ).df()
-        except duckdb.CatalogException:
-            pass
+            for schema in ("main_marts", "marts"):
+                try:
+                    return con.execute(
+                        f"select * from {schema}.fct_measurements_hourly"
+                    ).df()
+                except duckdb.CatalogException:
+                    continue
         finally:
             con.close()
 
@@ -101,7 +103,7 @@ def main() -> None:
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Stations", df_p["station_id"].nunique())
-    c2.metric("Readings (7d)", f"{len(df_p):,}")
+    c2.metric("Readings", f"{len(df_p):,}")
     c3.metric("Mean", f"{df_p['value'].mean():.1f} ug/m3")
     c4.metric("Max", f"{df_p['value'].max():.1f} ug/m3")
 
@@ -133,7 +135,7 @@ def main() -> None:
             )
         )
 
-    st.subheader("7-day trend")
+    st.subheader("Hourly trend")
     trend = (
         df_p.assign(hour=df_p["measured_at"].dt.floor("h"))
         .groupby("hour")["value"]
