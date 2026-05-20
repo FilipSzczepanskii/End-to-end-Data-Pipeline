@@ -173,18 +173,18 @@ def load_measurements() -> pd.DataFrame:
 # Map helpers
 # ---------------------------------------------------------------------------
 
-def _concentration_color(norm: float) -> list[int]:
+def _concentration_color(norm: float, alpha: int = 230) -> list[int]:
     """Three-stop ramp: green -> amber -> red, tuned for a light basemap."""
-    GREEN = (30, 185, 30)
-    AMBER = (255, 150, 0)
-    RED   = (215, 15,  15)
+    GREEN = (40, 195, 40)
+    AMBER = (255, 140, 0)
+    RED   = (215, 20,  20)
     if norm < 0.5:
         t = norm * 2
         c = [int(GREEN[i] + t * (AMBER[i] - GREEN[i])) for i in range(3)]
     else:
         t = (norm - 0.5) * 2
         c = [int(AMBER[i] + t * (RED[i] - AMBER[i])) for i in range(3)]
-    return c + [235]
+    return c + [alpha]
 
 
 # ---------------------------------------------------------------------------
@@ -293,39 +293,50 @@ def main() -> None:
                 else pd.Series(0.5, index=latest.index)
             )
 
-            # 3-D column height in metres (20 km - 180 km above ground)
-            latest["_elevation"] = (20_000 + norm_series * 160_000).astype(int)
-            latest["_color"]     = [_concentration_color(float(n)) for n in norm_series]
+            # Core dot: solid, sized by relative concentration
+            latest["_color"]      = [_concentration_color(float(n), alpha=230) for n in norm_series]
+            # Outer halo: same RGB, very transparent - creates a soft glow ring
+            latest["_color_halo"] = [_concentration_color(float(n), alpha=45)  for n in norm_series]
 
             st.pydeck_chart(
                 pdk.Deck(
+                    # Positron: clean white basemap, roads and borders are subtle gray
                     map_style=(
-                        "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json"
+                        "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
                     ),
                     initial_view_state=pdk.ViewState(
-                        # Shifted a bit north so pitched columns stay inside the frame
-                        latitude=51.4,
+                        latitude=52.1,
                         longitude=19.5,
-                        zoom=5.05,
-                        pitch=48,
+                        zoom=5.2,
+                        pitch=0,
                         bearing=0,
                     ),
                     layers=[
+                        # Layer 1 - soft outer halo (no interaction)
                         pdk.Layer(
-                            "ColumnLayer",
+                            "ScatterplotLayer",
                             latest,
                             get_position=["longitude", "latitude"],
-                            get_elevation="_elevation",
-                            elevation_scale=1,
-                            radius=22_000,
-                            disk_resolution=6,   # hexagonal columns
+                            get_radius=55_000,
+                            get_fill_color="_color_halo",
+                            radius_min_pixels=28,
+                            radius_max_pixels=90,
+                            pickable=False,
+                        ),
+                        # Layer 2 - solid core dot with white ring
+                        pdk.Layer(
+                            "ScatterplotLayer",
+                            latest,
+                            get_position=["longitude", "latitude"],
+                            get_radius=22_000,
                             get_fill_color="_color",
-                            get_line_color=[255, 255, 255, 100],
-                            line_width_min_pixels=1,
+                            stroked=True,
+                            get_line_color=[255, 255, 255, 220],
+                            line_width_min_pixels=2,
+                            radius_min_pixels=12,
+                            radius_max_pixels=44,
                             pickable=True,
-                            auto_highlight=True,
-                            coverage=0.88,
-                        )
+                        ),
                     ],
                     tooltip={
                         "html": (
@@ -340,15 +351,15 @@ def main() -> None:
                             "borderRadius": "8px",
                             "fontSize": "13px",
                             "padding": "8px 14px",
-                            "boxShadow": "0 4px 12px rgba(0,0,0,0.4)",
+                            "boxShadow": "0 4px 16px rgba(0,0,0,0.45)",
                         },
                     },
                 ),
                 use_container_width=True,
             )
             st.caption(
-                "Column height and color show concentration relative to stations visible. "
-                "Green = low, amber = medium, red = high."
+                "Green = low concentration, amber = medium, red = high "
+                "(relative to stations shown)."
             )
 
     # -- Trend chart --------------------------------------------------------
